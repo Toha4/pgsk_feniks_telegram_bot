@@ -26,7 +26,8 @@ bot = telebot.TeleBot(API_TOKEN)
 db = DataBase(DB_FILE)
 
 
-######### Регистрация
+""" Регистрация """
+
 @bot.message_handler(commands=['start'])
 def start(message):
     # Ищем пользователя в БД, если нет, то регистрируем
