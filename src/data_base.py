@@ -27,6 +27,13 @@ class DataBase:
         connect = sqlite3.connect(self.__db_file, check_same_thread=False)
         return connect
 
+    def close(self):
+        self.__connection.close()
+
+    def connect(self):
+        self.__connection = self.__sqlite_connect()
+
+        self.user_table = UserTable(self.__connection)
 
     def __check_db(self):
         """ Проверка наличия БД, и создания при отсутствии """
@@ -37,7 +44,6 @@ class DataBase:
         except FileNotFoundError:
             print("Database not found, trying to create a new one.")
             self.__init_sqlite()
-
 
     def __init_sqlite(self):
         """ Инициализация базы данных при первом запуске """
