@@ -15,7 +15,7 @@ class UserStatus(Enum):
 
 class DataBase:
     def __init__(self, db_file) -> None:
-        self.__db_file = db_file
+        self.__db_file = f'./data/{db_file}'
 
         self.__check_db()
 
