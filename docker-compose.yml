@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  telegram-bot-garage:
+    container_name: telegram-bot-garage
+    working_dir: /telegram_bot
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "python main.py"
+    env_file:
+      - ./src/.env
