@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 import telebot
 from telebot import types
 
@@ -18,8 +19,9 @@ BARRIER_RELAY_URL = os.getenv('BARRIER_RELAY_URL', '')
 BARRIER_RELAY_USER = os.getenv('BARRIER_RELAY_USER', '')
 BARRIER_RELAY_PASSWORD = os.getenv('BARRIER_RELAY_PASSWORD', '')
 DB_FILE = os.getenv('DB_FILE', 'db.db3')
-LOG_OPEN_FILE = os.getenv('LOG_OPEN_FILE', 'log_open.txt')
+LOG_OPEN_FILE = os.getenv('LOG_OPEN_FILE', 'open.log')
 
+Path("./data").mkdir(exist_ok=True)
 
 bot = telebot.TeleBot(API_TOKEN)
 

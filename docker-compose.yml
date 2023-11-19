@@ -11,3 +11,8 @@ services:
     command: sh -c "python main.py"
     env_file:
       - ./src/.env
+    volumes:
+      - data:/telegram_bot/data
+
+volumes:
+  data:
