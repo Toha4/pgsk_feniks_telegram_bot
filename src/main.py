@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import telebot
 from telebot import types
+from backup import Backup
 
 from barrier_relay import open_barrier
 from data_base import DataBase, UserStatus
@@ -22,6 +23,7 @@ DB_FILE = os.getenv('DB_FILE', 'db.db3')
 LOG_OPEN_FILE = os.getenv('LOG_OPEN_FILE', 'open.log')
 
 Path("./data").mkdir(exist_ok=True)
+Path("./tmp").mkdir(exist_ok=True)
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -93,16 +95,20 @@ def callback_inline(call):
 
 @bot.message_handler(commands=['help'])
 def help(message):
+    help_text = ''
+
     if db.user_table.user_is_admin(message.from_user.id):
-        help_text = HELP_ADMIN
+        help_text = f'{HELP_USER}\n{HELP_ADMIN}'
     else:
         help_text = HELP_USER
+        
     bot.send_message(message.chat.id, help_text)
+
 
 """ Обработка команд пользователя """
 
 @bot.message_handler(commands=['open'])
-def open(message):
+def open_(message):
     if not db.user_table.user_is_active(message.from_user.id):
         bot.send_message(message.chat.id, 'Вам запрещено открывать шлагбаум!')
         return
@@ -133,6 +139,7 @@ def add_user(message):
     except:
         bot.send_message(message.chat.id, 'Неверная команда')
 
+
 @bot.message_handler(commands=['all_users'])
 def all_users(message):
     if not db.user_table.user_is_admin(message.from_user.id):
@@ -140,6 +147,7 @@ def all_users(message):
     
     all_user_str = user_all_text()
     bot.send_message(message.chat.id, all_user_str)
+
 
 @bot.message_handler(commands=['userinfo'])
 def user_info(message):
@@ -157,6 +165,7 @@ def user_info(message):
     except:
         bot.send_message(message.chat.id, 'Неверная команда')
 
+
 @bot.message_handler(commands=['userblock'])
 def user_userblock(message):
     if not db.user_table.user_is_admin(message.from_user.id):
@@ -172,6 +181,26 @@ def user_userblock(message):
             bot.send_message(message.chat.id, 'Пользователь не найден')
     except:
         bot.send_message(message.chat.id, 'Неверная команда')
+
+
+@bot.message_handler(commands=['backups'])
+def backups(message):
+    if not db.user_table.user_is_admin(message.from_user.id):
+        return
+    
+    # Закрываем БД, делаем zip файл, открываем БД
+    db.close()
+    backup = Backup()
+    file = backup.make_zip()
+    db.connect()
+
+    # Отправляем файл zip
+    with open(file, 'rb') as document:
+        bot.send_document(message.chat.id, document)
+
+    # Удаляем файл zip
+    backup.remove_backups_file()
+    
 
 """ Обработка текста """
 
