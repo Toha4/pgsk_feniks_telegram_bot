@@ -133,10 +133,12 @@ class UserTable():
 
         return user_id
 
-    def user_is_admin(self, user_id):
+    def user_is_admin(self, user_id) -> bool:
         is_admin = False
         with self.__connection:
-            is_admin = self.__cursor.execute('SELECT `is_admin` FROM `users` WHERE `user_id` = ?', (user_id,)).fetchone()[0]
+            result = self.__cursor.execute('SELECT `is_admin` FROM `users` WHERE `user_id` = ?', (user_id,)).fetchone()
+            if result:
+                is_admin = bool(result[0])
 
         return is_admin
 
