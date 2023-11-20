@@ -9,8 +9,9 @@ from barrier_relay import open_barrier
 from data_base import DataBase, UserStatus
 
 from help import HELP_ADMIN, HELP_USER
+from logger import MyLogger
 import markups as nav
-from utils import send_admins_request, user_all_text, user_info_text, write_open_log
+from utils import get_log, send_admins_request, user_all_text, user_info_text, write_open_log
 
 
 load_dotenv()
@@ -28,6 +29,8 @@ Path("./tmp").mkdir(exist_ok=True)
 bot = telebot.TeleBot(API_TOKEN)
 
 db = DataBase(DB_FILE)
+
+open_logger = MyLogger(f'./data/{LOG_OPEN_FILE}')
 
 
 """ Регистрация """
@@ -115,7 +118,7 @@ def open_(message):
 
     if open_barrier(BARRIER_RELAY_URL, BARRIER_RELAY_USER, BARRIER_RELAY_PASSWORD):
         bot.send_message(message.chat.id, 'Шлагбаум открыт!')
-        write_open_log(LOG_OPEN_FILE, message.from_user.id)
+        write_open_log(open_logger, message.from_user.id)
 
 
 """ Обработка команд администратора """
@@ -183,6 +186,24 @@ def user_userblock(message):
         bot.send_message(message.chat.id, 'Неверная команда')
 
 
+@bot.message_handler(commands=['log'])
+def log(message):
+    if not db.user_table.user_is_admin(message.from_user.id):
+        return
+    
+    try:
+        log_limit = 20
+
+        args = message.text.split(' ')
+        if len(args) >= 2:
+            log_limit = int(args[1])
+
+        log = get_log(open_logger, log_limit)
+        bot.send_message(message.chat.id, log)
+    except:
+        bot.send_message(message.chat.id, 'Неверная команда')
+
+
 @bot.message_handler(commands=['backups'])
 def backups(message):
     if not db.user_table.user_is_admin(message.from_user.id):
@@ -220,7 +241,7 @@ def open_from_button(message):
     result_open = open_barrier(BARRIER_RELAY_URL, BARRIER_RELAY_USER, BARRIER_RELAY_PASSWORD)
     if result_open:
         bot.send_message(message.chat.id, 'Шлагбаум открыт!')
-        write_open_log(LOG_OPEN_FILE, message.from_user.id)
+        write_open_log(open_logger, message.from_user.id)
 
 
 if __name__ == "__main__":
