@@ -3,6 +3,9 @@ FROM python:3.10-alpine
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# Установка TZ
+ENV TZ=Asia/Vladivostok
+
 WORKDIR /telegram_bot
 
 # Устанавливаем зависимости
