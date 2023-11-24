@@ -5,7 +5,8 @@ import telebot
 from telebot import types
 from backup import Backup
 
-from barrier_relay import open_barrier
+from barrier_relay import send_open_barrier
+from my_block_timer import BlockTimer
 from data_base import DataBase, UserStatus
 
 from help import HELP_ADMIN, HELP_USER
@@ -20,6 +21,7 @@ API_TOKEN = os.getenv('API_TOKEN', '')
 BARRIER_RELAY_URL = os.getenv('BARRIER_RELAY_URL', '')
 BARRIER_RELAY_USER = os.getenv('BARRIER_RELAY_USER', '')
 BARRIER_RELAY_PASSWORD = os.getenv('BARRIER_RELAY_PASSWORD', '')
+BARRIER_RELAY_BLOCK_SECOND = int(os.getenv('BARRIER_RELAY_TIMER_SECOND', 30))
 DB_FILE = os.getenv('DB_FILE', 'db.db3')
 LOG_OPEN_FILE = os.getenv('LOG_OPEN_FILE', 'open.log')
 
@@ -31,6 +33,22 @@ bot = telebot.TeleBot(API_TOKEN)
 db = DataBase(DB_FILE)
 
 open_logger = MyLogger(f'./data/{LOG_OPEN_FILE}')
+
+open_block_timer = BlockTimer(BARRIER_RELAY_BLOCK_SECOND)
+
+
+def open_barrier(message):
+    if open_block_timer.is_block():
+        bot.send_message(message.chat.id, f'Повторно шлагбаум можно отркыть через {open_block_timer.get_time_left()} секунд!')
+        return
+
+    result_open = send_open_barrier(BARRIER_RELAY_URL, BARRIER_RELAY_USER, BARRIER_RELAY_PASSWORD)
+    if result_open:
+        bot.send_message(message.chat.id, 'Шлагбаум открыт!')
+        write_open_log(open_logger, message.from_user.id)
+        open_block_timer.start_block()
+    else:
+        bot.send_message(message.chat.id, 'Не удалось открыть!')
 
 
 """ Регистрация """
@@ -116,9 +134,7 @@ def open_(message):
         bot.send_message(message.chat.id, 'Вам запрещено открывать шлагбаум!')
         return
 
-    if open_barrier(BARRIER_RELAY_URL, BARRIER_RELAY_USER, BARRIER_RELAY_PASSWORD):
-        bot.send_message(message.chat.id, 'Шлагбаум открыт!')
-        write_open_log(open_logger, message.from_user.id)
+    open_barrier(message)
 
 
 """ Обработка команд администратора """
@@ -238,10 +254,7 @@ def open_from_button(message):
         bot.send_message(message.chat.id, 'Вам запрещено открывать шлагбаум!')
         return
 
-    result_open = open_barrier(BARRIER_RELAY_URL, BARRIER_RELAY_USER, BARRIER_RELAY_PASSWORD)
-    if result_open:
-        bot.send_message(message.chat.id, 'Шлагбаум открыт!')
-        write_open_log(open_logger, message.from_user.id)
+    open_barrier(message)
 
 
 if __name__ == "__main__":
