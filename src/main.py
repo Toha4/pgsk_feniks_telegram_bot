@@ -38,8 +38,12 @@ open_block_timer = BlockTimer(BARRIER_RELAY_BLOCK_SECOND)
 
 
 def open_barrier(message):
+    if not db.user_table.user_is_active(message.from_user.id):
+        bot.send_message(message.chat.id, 'Вам запрещено открывать шлагбаум!')
+        return
+
     if open_block_timer.is_block():
-        bot.send_message(message.chat.id, f'Повторно шлагбаум можно отркыть через {open_block_timer.get_time_left()} секунд!')
+        bot.send_message(message.chat.id, f'Повторно шлагбаум можно открыть через {open_block_timer.get_time_left()} секунд!')
         return
 
     result_open = send_open_barrier(BARRIER_RELAY_URL, BARRIER_RELAY_USER, BARRIER_RELAY_PASSWORD)
@@ -130,10 +134,6 @@ def help(message):
 
 @bot.message_handler(commands=['open'])
 def open_(message):
-    if not db.user_table.user_is_active(message.from_user.id):
-        bot.send_message(message.chat.id, 'Вам запрещено открывать шлагбаум!')
-        return
-
     open_barrier(message)
 
 
@@ -244,17 +244,9 @@ def backups(message):
 @bot.message_handler()
 def info(message):
     if message.text == 'Открыть шлагбаум':
-        open_from_button(message)
+        open_barrier(message)
     else:
-        bot.send_message(message.chat.id, 'Я глупый бот, принимаю только команды. Введите /help для получение списка команд.')
-
-
-def open_from_button(message):    
-    if not db.user_table.user_is_active(message.from_user.id):
-        bot.send_message(message.chat.id, 'Вам запрещено открывать шлагбаум!')
-        return
-
-    open_barrier(message)
+        bot.send_message(message.chat.id, 'Я глупый бот, принимаю только команды. Введите /help для получение списка команд.') 
 
 
 if __name__ == "__main__":
