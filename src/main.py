@@ -4,6 +4,8 @@ from pathlib import Path
 import telebot
 from telebot import types
 from backup import Backup
+import cronitor
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from barrier_relay import send_open_barrier
 from my_block_timer import BlockTimer
@@ -24,6 +26,9 @@ BARRIER_RELAY_PASSWORD = os.getenv('BARRIER_RELAY_PASSWORD', '')
 BARRIER_RELAY_BLOCK_SECOND = int(os.getenv('BARRIER_RELAY_TIMER_SECOND', 30))
 DB_FILE = os.getenv('DB_FILE', 'db.db3')
 LOG_OPEN_FILE = os.getenv('LOG_OPEN_FILE', 'open.log')
+CRONITOR_API_KEY = os.getenv('CRONITOR_API_KEY', '')
+CRONITOR_MONITOR_KEY = os.getenv('CRONITOR_MONITOR_KEY', '')
+CRONITOR_INTERVAL_MINUTES = int(os.getenv('CRONITOR_INTERVAL_MINUTES', 5))
 
 Path("./data").mkdir(exist_ok=True)
 Path("./tmp").mkdir(exist_ok=True)
@@ -35,6 +40,19 @@ db = DataBase(DB_FILE)
 open_logger = MyLogger(f'./data/{LOG_OPEN_FILE}')
 
 open_block_timer = BlockTimer(BARRIER_RELAY_BLOCK_SECOND)
+
+
+# Health check for work bot
+if CRONITOR_API_KEY:
+    cronitor.api_key = CRONITOR_API_KEY
+    monitor = cronitor.Monitor(CRONITOR_MONITOR_KEY)
+
+    def send_health_ping():
+        monitor.ping()
+
+    sched = BackgroundScheduler()
+    sched.add_job(send_health_ping, trigger="interval", minutes=CRONITOR_INTERVAL_MINUTES)
+    sched.start()
 
 
 def open_barrier(message):
