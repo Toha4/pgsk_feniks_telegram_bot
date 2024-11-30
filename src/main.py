@@ -1,6 +1,9 @@
+from http.client import RemoteDisconnected
 import os
+import time
 from dotenv import load_dotenv
 from pathlib import Path
+from requests import ReadTimeout, RequestException
 import telebot
 from telebot import types
 from backup import Backup
@@ -267,5 +270,23 @@ def info(message):
         bot.send_message(message.chat.id, 'Я глупый бот, принимаю только команды. Введите /help для получение списка команд.') 
 
 
+def run_bot():
+    """Запуск бота с обработкой ошибок"""
+    # Пока обрабатываем только ошибки сети и перезапускам в случае возникновения
+
+    while True:
+        try:
+            print("Бот запущен...")
+            bot.polling(non_stop=True, interval=1, timeout=20)
+        except (ReadTimeout, ConnectionError, RemoteDisconnected) as e:
+            print(f"Ошибка подключения: {e}. Переподключение через 30 секунд...")
+            time.sleep(30)  # Пауза перед повторной попыткой подключения
+        except RequestException as e:
+            print(f"Ошибка сети: {e}. Переподключение через 30 секунд...")
+            time.sleep(30)  # Пауза перед повторной попыткой подключения
+        except Exception as e:
+            print(f"Необработанная ошибка: {e}. Завершаем работу.")
+            break  
+
 if __name__ == "__main__":
-    bot.polling(non_stop=True)
+    run_bot()
