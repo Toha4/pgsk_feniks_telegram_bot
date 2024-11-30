@@ -1,3 +1,4 @@
+from contextlib import closing
 from enum import Enum
 from pathlib import Path
 import sqlite3
@@ -79,7 +80,23 @@ class UserTable():
 
     def __init__(self, connection) -> None:
         self.__connection = connection
-        self.__cursor = self.__connection.cursor()
+
+    def _execute_query(self, query, params=(), fetchall=False):
+        """
+        Универсальный метод для выполнения запросов.
+        :param query: SQL-запрос
+        :param params: Параметры для подстановки в запрос
+        :param fetchall: Если True, вернет все результаты
+        :return: Результат выполнения запроса или None
+        """
+        with self.__connection:
+            with closing(self.__connection.cursor()) as cursor:
+                cursor.execute(query, params)
+                    
+                if fetchall:
+                    return cursor.fetchall()
+                
+                return cursor.fetchone()
 
     def add_user(self, user_id, tg_user_name, name, garage_number, phone_number) -> bool:
         """ Добавление новго пользователя. Если пользователь был добавлен в качестве администратора, возвращается True """
@@ -93,76 +110,66 @@ class UserTable():
             is_admin = True
             status = UserStatus.ACTIVE
 
-
-        with self.__connection:
-            self.__cursor.execute(
-                'INSERT INTO `users` (`user_id`, `tg_username`, `name`, `phone_number`, `garage_number`, `date_create`, `is_admin`, `status`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                (user_id, tg_user_name, name, phone_number, garage_number, date_create, is_admin, status.value)
-            )
+        self._execute_query(
+            'INSERT INTO `users` (`user_id`, `tg_username`, `name`, `phone_number`, `garage_number`, `date_create`, `is_admin`, `status`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (user_id, tg_user_name, name, phone_number, garage_number, date_create, is_admin, status.value)
+        )
 
         return is_admin
 
     def users_emty(self) -> bool:
-        with self.__connection:
-            result = self.__cursor.execute('SELECT COUNT(*) FROM `users`').fetchall()
-
-        return result[0][0] == 0
-
+        """ Проверяет, пустая ли таблица пользователей """
+        
+        result = self._execute_query('SELECT COUNT(*) FROM `users`')
+        return result[0] == 0
 
     def user_exist(self, user_id):
-        with self.__connection:
-            result = self.__cursor.execute('SELECT * FROM `users` WHERE `user_id` = ?', (user_id,)).fetchall()
+        """ Проверяет, существует ли пользователь с данным user_id """
 
-            return bool(len(result))
+        result = self._execute_query('SELECT * FROM `users` WHERE `user_id` = ?', (user_id,))
+        return result is not None
         
     def get_admin_ids(self):
-        with self.__connection:
-            return self.__cursor.execute('SELECT `user_id` FROM `users` WHERE `is_admin` = 1').fetchall()
+        """ Возвращает список user_id всех администраторов """
+
+        return self._execute_query('SELECT `user_id` FROM `users` WHERE `is_admin` = 1', fetchall=True)
         
     def user_is_active(self, user_id):
-        with self.__connection:
-            result = self.__cursor.execute('SELECT `status` FROM `users` WHERE `user_id` = ?', (user_id,)).fetchone()[0]
+        """ Проверяет, активен ли пользователь """
 
-            return result == UserStatus.ACTIVE.value
+        result = self._execute_query('SELECT `status` FROM `users` WHERE `user_id` = ?', (user_id,))
+        return result and result[0] == UserStatus.ACTIVE.value
         
     def user_set_status(self, id, status: UserStatus) -> int | None:
-        with self.__connection:
-            self.__cursor.execute('UPDATE `users` SET `status` = ? WHERE `id` = ?', (status.value, id,))
-        
+        """ Устанавливает статус пользователя и возвращает user_id """
+
+        self._execute_query('UPDATE `users` SET `status` = ? WHERE `id` = ?', (status.value, id,))
         return self.get_user_id(id)
 
     def get_user_id(self, id) -> int | None:
-        user_id = None
+        """ Возвращает user_id по id """
 
-        with self.__connection:
-            user_id = self.__cursor.execute('SELECT `user_id` FROM `users` WHERE `id` = ?', (id,)).fetchone()[0]
-
-        return user_id
+        result  = self._execute_query('SELECT `user_id` FROM `users` WHERE `id` = ?', (id,))
+        return result[0] if result else None
 
     def user_is_admin(self, user_id) -> bool:
-        is_admin = False
-        with self.__connection:
-            result = self.__cursor.execute('SELECT `is_admin` FROM `users` WHERE `user_id` = ?', (user_id,)).fetchone()
-            if result:
-                is_admin = bool(result[0])
+        """ Проверяет, является ли пользователь администратором """
 
-        return is_admin
+        result = self._execute_query('SELECT `is_admin` FROM `users` WHERE `user_id` = ?', (user_id,))
+        return bool(result and result[0])
 
     def get_user(self, user_id, by_id=False) -> User | None:
+        """ Получает данные пользователя """
 
-        find_field = '[user_id]'
-        if by_id:
-            find_field = '[id]'
-            
-
-        with self.__connection:
-            result = self.__cursor.execute(
-                f'''
-                SELECT `id`, `user_id`, `tg_username`, `name`, `phone_number`, `garage_number`, `date_create`, `status`, `is_admin` 
-                FROM `users` WHERE {find_field} = ?
-                ''',
-                (user_id,)
-            ).fetchone()
+        find_field = '[id]' if by_id else '[user_id]'
+        
+        result = self._execute_query(
+            f'''
+            SELECT `id`, `user_id`, `tg_username`, `name`, `phone_number`, `garage_number`, `date_create`, `status`, `is_admin` 
+            FROM `users` WHERE {find_field} = ?
+            ''',
+            (user_id,)
+        )
 
         if result:
             return User(
@@ -180,15 +187,17 @@ class UserTable():
         return None
 
     def get_all_users(self) -> list[UserShort]:
-        users = []
+        """ Возвращает список всех пользователей в кратком формате """
 
-        with self.__connection:
-            result = self.__cursor.execute('SELECT `id`, `name`, `garage_number`, `status`, `is_admin` FROM `users`').fetchall()
+        result = self._execute_query('SELECT `id`, `name`, `garage_number`, `status`, `is_admin` FROM `users`', fetchall=True)
         
-            for row in result:
-                users.append(
-                    UserShort(id=row[0], name=row[1], garage_number=row[2], status=row[3], is_admin=row[4])
-                )
-        
-        return users 
-    
+        return [
+            UserShort(
+                id=row[0],
+                name=row[1],
+                garage_number=row[2],
+                status=row[3],
+                is_admin=row[4]
+            )
+            for row in result
+        ] 
