@@ -1,4 +1,5 @@
 from http.client import RemoteDisconnected
+import logging
 import os
 import time
 from dotenv import load_dotenv
@@ -32,6 +33,7 @@ LOG_OPEN_FILE = os.getenv('LOG_OPEN_FILE', 'open.log')
 CRONITOR_API_KEY = os.getenv('CRONITOR_API_KEY', '')
 CRONITOR_MONITOR_KEY = os.getenv('CRONITOR_MONITOR_KEY', '')
 CRONITOR_INTERVAL_MINUTES = int(os.getenv('CRONITOR_INTERVAL_MINUTES', 5))
+RECONNECTION_TIMEOUT = int(os.getenv('RECONNECTION_TIMEOUT', 30))
 
 Path("./data").mkdir(exist_ok=True)
 Path("./tmp").mkdir(exist_ok=True)
@@ -43,6 +45,15 @@ db = DataBase(DB_FILE)
 open_logger = MyLogger(f'./data/{LOG_OPEN_FILE}')
 
 open_block_timer = BlockTimer(BARRIER_RELAY_BLOCK_SECOND)
+
+# Конфигурация логгера
+logging.basicConfig(
+    level=logging.INFO,  # Уровень логирования
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Формат сообщения
+    handlers=[
+        logging.StreamHandler()  # Логирование в консоль
+    ]
+)
 
 
 # Health check for work bot
@@ -276,17 +287,17 @@ def run_bot():
 
     while True:
         try:
-            print("Бот запущен...")
+            logging.info("Бот запущен...")
             bot.polling(non_stop=True, interval=1, timeout=20)
         except (ReadTimeout, ConnectionError, RemoteDisconnected) as e:
-            print(f"Ошибка подключения: {e}. Переподключение через 30 секунд...")
-            time.sleep(30)  # Пауза перед повторной попыткой подключения
+            logging.warning(f"Ошибка подключения: {e}. Переподключение через {RECONNECTION_TIMEOUT} секунд...")
+            time.sleep(RECONNECTION_TIMEOUT)  # Пауза перед повторной попыткой подключения
         except RequestException as e:
-            print(f"Ошибка сети: {e}. Переподключение через 30 секунд...")
-            time.sleep(30)  # Пауза перед повторной попыткой подключения
+            logging.error(f"Ошибка сети: {e}. Переподключение через {RECONNECTION_TIMEOUT} секунд...")
+            time.sleep(RECONNECTION_TIMEOUT)  # Пауза перед повторной попыткой подключения
         except Exception as e:
-            print(f"Необработанная ошибка: {e}. Завершаем работу.")
-            break  
+            logging.critical(f"Необработанная ошибка: {e}. Завершаем работу.")
+            raise e
 
 if __name__ == "__main__":
     run_bot()
